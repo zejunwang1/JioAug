@@ -5,6 +5,7 @@
 # email: dongrixinyu.89@163.com
 # github: https://github.com/dongrixinyu/JioNLP
 # description: Preprocessing & Parsing tool for Chinese NLP
+# modified by wangzejun (wangzejunscut@126.com)
 
 
 import collections
@@ -14,6 +15,14 @@ import jiojio
 from jionlp.gadget.pinyin import Pinyin
 from jionlp.dictionary.dictionary_loader import word_distribution_loader
 
+
+def isChinese(word):
+    for ch in word:
+        cp = ord(ch)
+        if cp >= 0x4E00 and cp <= 0x9FA5:
+            continue
+        return False
+    return True
 
 class HomophoneSubstitution(object):
     """
@@ -55,7 +64,7 @@ class HomophoneSubstitution(object):
     def __init__(self):
         self.word_pinyin_dict = None
 
-    def _prepare(self, homo_ratio=0.02, seed=1):
+    def _prepare(self, homo_ratio=0.1, min_count=1000, seed=37):
         jiojio.init()
 
         self.random = np.random
@@ -63,6 +72,7 @@ class HomophoneSubstitution(object):
         if seed != 0:
             self.random.seed(seed)
         self.homo_ratio = homo_ratio
+        self.min_count = min_count
 
         self.pinyin = Pinyin()
         self._construct_word_pinyin_dict()
@@ -102,8 +112,8 @@ class HomophoneSubstitution(object):
             word_values = [item[1] for item in word_dict.items() if len(item[0]) == correct_length]
             total_num = sum(word_values)
 
-            # 最低分辨率是 0.0001，因此选择 10000 词频
-            if total_num < 10000:  # 该拼音对应的词汇总频次过低，即非常见词，不予替换
+            # 最低分辨率是 0.001，因此选择 1000 词频
+            if total_num < self.min_count:  # 该拼音对应的词汇总频次过低，即非常见词，不予替换
                 continue
 
             word_values = [val / total_num for val in word_values]
@@ -111,10 +121,10 @@ class HomophoneSubstitution(object):
 
         del word_pinyin_dict
 
-    def __call__(self, text, augmentation_num=3, homo_ratio=0.02,
-                 allow_mispronounce=True, seed=1):
+    def __call__(self, text, augmentation_num=3, homo_ratio=0.1, min_count=1000,
+                 allow_mispronounce=True, seed=37):
         if self.word_pinyin_dict is None:
-            self._prepare(homo_ratio=homo_ratio, seed=seed)
+            self._prepare(homo_ratio=homo_ratio, min_count=min_count, seed=seed)
 
         if self.seed != seed:
             self.seed = seed
@@ -133,12 +143,13 @@ class HomophoneSubstitution(object):
 
         augmentation_text_list = list()
         count = 0
+        max_iters = min((augmentation_num << 1) / self.homo_ratio, len(text))
 
         while len(augmentation_text_list) < augmentation_num:
             augmented_text = self._augment_one(
                 pinyin_segs, segs, allow_mispronounce=allow_mispronounce)
             count += 1
-            if count > min(augmentation_num / self.homo_ratio, len(text)):
+            if count > max_iters:
                 break
 
             if augmented_text == text:
@@ -151,6 +162,11 @@ class HomophoneSubstitution(object):
     def _augment_one(self, pinyin_segs, segs, allow_mispronounce=True):
         selected_segs = []
         for pinyin_word, word in zip(pinyin_segs, segs):
+            # 确保为中文字词
+            if not isChinese(word):
+                selected_segs.append(word)
+                continue
+
             if self.random.random() < self.homo_ratio:
                 # 找到该词的拼音
                 pinyin_list = []
@@ -180,27 +196,29 @@ class HomophoneSubstitution(object):
                         selected_pinyin = self.random.choice(candidate_pinyin_list)
 
                     if selected_pinyin in self.word_pinyin_dict:
-                        selected_word = ''
+                        flag = False
                         for _ in range(len(self.word_pinyin_dict[selected_pinyin][0])):
                             selected_word = self.random.choice(
                                 self.word_pinyin_dict[selected_pinyin][0],
                                 p=self.word_pinyin_dict[selected_pinyin][1])
-                            if selected_word != word:
+                            if selected_word != word and isChinese(selected_word) and len(selected_word) == len(word):
+                                flag = True
                                 break
-                        selected_segs.append(selected_word)
+                        selected_segs.append(selected_word if flag else word)
                     else:
                         selected_segs.append(word)
                 else:
                     selected_pinyin = ''.join(pinyin_list)
                     if selected_pinyin in self.word_pinyin_dict:
-                        selected_word = ''
+                        flag = False
                         for _ in range(len(self.word_pinyin_dict[selected_pinyin][0])):
                             selected_word = self.random.choice(
                                 self.word_pinyin_dict[selected_pinyin][0],
                                 p=self.word_pinyin_dict[selected_pinyin][1])
-                            if selected_word != word:
+                            if selected_word != word and isChinese(selected_word) and len(selected_word) == len(word):
+                                flag = True
                                 break
-                        selected_segs.append(selected_word)
+                        selected_segs.append(selected_word if flag else word)
                     else:
                         selected_segs.append(word)
             else:

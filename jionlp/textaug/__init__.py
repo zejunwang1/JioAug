@@ -11,10 +11,12 @@ from .back_translation import BackTranslation, BaiduApi, YoudaoFreeApi, \
     YoudaoApi, GoogleApi, TencentApi, XunfeiApi
 from .swap_char_position import SwapCharPosition
 from .homophone_substitution import HomophoneSubstitution
+from .homophone_substitution_window import HomophoneSubstitutionWindow
 from .random_add_delete import RandomAddDelete
 from .replace_entity import ReplaceEntity
 
 swap_char_position = SwapCharPosition()
 homophone_substitution = HomophoneSubstitution()
+homophone_substitution_window = HomophoneSubstitutionWindow()
 random_add_delete = RandomAddDelete()
 
