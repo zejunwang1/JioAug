@@ -64,8 +64,8 @@ class HomophoneSubstitution(object):
     def __init__(self):
         self.word_pinyin_dict = None
 
-    def _prepare(self, homo_ratio=0.1, min_count=1000, seed=37):
-        jiojio.init()
+    def _prepare(self, homo_ratio=0.1, min_count=1000, pos=False, seed=37):
+        jiojio.init(pos=pos)
 
         self.random = np.random
         self.seed = seed
@@ -121,10 +121,10 @@ class HomophoneSubstitution(object):
 
         del word_pinyin_dict
 
-    def __call__(self, text, augmentation_num=3, homo_ratio=0.1, min_count=1000,
+    def __call__(self, text, augmentation_num=3, homo_ratio=0.1, min_count=1000, pos=False,
                  allow_mispronounce=True, seed=37):
         if self.word_pinyin_dict is None:
-            self._prepare(homo_ratio=homo_ratio, min_count=min_count, seed=seed)
+            self._prepare(homo_ratio=homo_ratio, min_count=min_count, pos=pos, seed=seed)
 
         if self.seed != seed:
             self.seed = seed
@@ -135,9 +135,11 @@ class HomophoneSubstitution(object):
             self.homo_ratio = homo_ratio
 
         segs = jiojio.cut(text)
+        tags = [0] * len(segs)
         if len(segs) > 0:
             if type(segs[0]) is not str:  # 考虑 jiojio 将 pos 加载的情况。
                 segs = [seg[0] for seg in segs]
+                tags = [seg[1] for seg in segs]
 
         pinyin_segs = [self.pinyin(seg, formater='detail') for seg in segs]
 
@@ -147,7 +149,7 @@ class HomophoneSubstitution(object):
 
         while len(augmentation_text_list) < augmentation_num:
             augmented_text = self._augment_one(
-                pinyin_segs, segs, allow_mispronounce=allow_mispronounce)
+                pinyin_segs, segs, tags, allow_mispronounce=allow_mispronounce)
             count += 1
             if count > max_iters:
                 break
@@ -159,11 +161,16 @@ class HomophoneSubstitution(object):
 
         return augmentation_text_list
 
-    def _augment_one(self, pinyin_segs, segs, allow_mispronounce=True):
+    def _augment_one(self, pinyin_segs, segs, tags, allow_mispronounce=True):
         selected_segs = []
-        for pinyin_word, word in zip(pinyin_segs, segs):
+        for pinyin_word, word, tag in zip(pinyin_segs, segs, tags):
             # 确保为中文字词
             if not isChinese(word):
+                selected_segs.append(word)
+                continue
+
+            # 当pos=True时不修改人名
+            if tag == 'nr':
                 selected_segs.append(word)
                 continue
 

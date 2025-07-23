@@ -64,8 +64,8 @@ class HomophoneSubstitutionWindow(object):
     def __init__(self):
         self.word_pinyin_dict = None
 
-    def _prepare(self, window=10, min_count=1000, seed=37):
-        jiojio.init()
+    def _prepare(self, window=10, min_count=1000, pos=False, seed=37):
+        jiojio.init(pos=pos)
 
         self.random = np.random
         self.seed = seed
@@ -121,10 +121,10 @@ class HomophoneSubstitutionWindow(object):
 
         del word_pinyin_dict
 
-    def __call__(self, text, augmentation_num=3, window=10, min_count=1000,
+    def __call__(self, text, augmentation_num=3, window=10, min_count=1000, pos=False,
                  allow_mispronounce=True, seed=37):
         if self.word_pinyin_dict is None:
-            self._prepare(window=window, min_count=min_count, seed=seed)
+            self._prepare(window=window, min_count=min_count, pos=pos, seed=seed)
 
         if self.seed != seed:
             self.seed = seed
@@ -135,9 +135,11 @@ class HomophoneSubstitutionWindow(object):
             self.window = window
 
         segs = jiojio.cut(text)
+        tags = [0] * len(segs)
         if len(segs) > 0:
             if type(segs[0]) is not str:  # 考虑 jiojio 将 pos 加载的情况。
                 segs = [seg[0] for seg in segs]
+                tags = [seg[1] for seg in segs]
 
         pinyin_segs = [self.pinyin(seg, formater='detail') for seg in segs]
 
@@ -147,7 +149,7 @@ class HomophoneSubstitutionWindow(object):
 
         while len(augmentation_text_list) < augmentation_num:
             augmented_text = self._augment_one(
-                pinyin_segs, segs, allow_mispronounce=allow_mispronounce)
+                pinyin_segs, segs, tags, allow_mispronounce=allow_mispronounce)
             count += 1
             if count > max_iters:
                 break
@@ -159,7 +161,7 @@ class HomophoneSubstitutionWindow(object):
 
         return augmentation_text_list
 
-    def _augment_one(self, pinyin_segs, segs, allow_mispronounce=True):
+    def _augment_one(self, pinyin_segs, segs, tags, allow_mispronounce=True):
         n = len(segs)
         selected_segs = segs.copy()
         for i in range(0, n, self.window):
@@ -173,6 +175,10 @@ class HomophoneSubstitutionWindow(object):
                 if isChinese(word):
                     break
             if c > 2:
+                continue
+
+            # 当pos=True时不修改人名
+            if tags[j] == 'nr':
                 continue
 
             # 找到该词的拼音
