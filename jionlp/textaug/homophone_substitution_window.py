@@ -145,7 +145,7 @@ class HomophoneSubstitutionWindow(object):
 
         augmentation_text_list = list()
         count = 0
-        max_iters = min(window << 1, len(text))
+        max_iters = min(augmentation_num * (window << 1), len(text))
 
         while len(augmentation_text_list) < augmentation_num:
             augmented_text = self._augment_one(
