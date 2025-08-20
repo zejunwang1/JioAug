@@ -80,7 +80,11 @@ def homophone_substitution_window(
 )
 ```
 
-- `window`: 滑动窗口大小，默认为 10，即从每 10 个词语中随机选择一个中文字词进行替换。其余参数与 `homophone_substitution` 中的参数含义相同
+- `window`: 滑动窗口大小，默认为 10，即从每 10 个词语中随机选择一个中文字词进行替换。
+
+- `select_k`: 单个窗口内的最大随机选择次数，默认为 2，即从每个窗口内最多随机选择两次。
+
+其余参数与 `homophone_substitution` 中的参数含义相同。
 
 ```python
 from jionlp import homophone_substitution_window
