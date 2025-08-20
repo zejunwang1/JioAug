@@ -3,9 +3,17 @@
 ## Installation
 
 ```shell
+
 git clone https://github.com/zejunwang1/JioAug
 cd ./JioAug
 pip install .
+```
+
+或者
+
+```shell
+
+pip install git+https://github.com/zejunwang1/JioAug
 ```
 
 ## Usage

@@ -64,7 +64,7 @@ class HomophoneSubstitutionWindow(object):
     def __init__(self):
         self.word_pinyin_dict = None
 
-    def _prepare(self, window=10, min_count=1000, pos=False, seed=37):
+    def _prepare(self, window=10, select_k=2, min_count=1000, pos=False, seed=37):
         jiojio.init(pos=pos)
 
         self.random = np.random
@@ -72,6 +72,7 @@ class HomophoneSubstitutionWindow(object):
         if seed != 0:
             self.random.seed(seed)
         self.window = window
+        self.select_k = select_k
         self.min_count = min_count
 
         self.pinyin = Pinyin()
@@ -121,10 +122,10 @@ class HomophoneSubstitutionWindow(object):
 
         del word_pinyin_dict
 
-    def __call__(self, text, augmentation_num=3, window=10, min_count=1000, pos=False,
+    def __call__(self, text, augmentation_num=3, window=10, select_k=2, min_count=1000, pos=False,
                  allow_mispronounce=True, seed=37):
         if self.word_pinyin_dict is None:
-            self._prepare(window=window, min_count=min_count, pos=pos, seed=seed)
+            self._prepare(window=window, select_k=select_k, min_count=min_count, pos=pos, seed=seed)
 
         if self.seed != seed:
             self.seed = seed
@@ -133,6 +134,9 @@ class HomophoneSubstitutionWindow(object):
 
         if self.window != window:
             self.window = window
+
+        if self.select_k != select_k:
+            self.select_k = select_k
 
         segs = jiojio.cut(text)
         tags = [0] * len(segs)
@@ -166,19 +170,15 @@ class HomophoneSubstitutionWindow(object):
         selected_segs = segs.copy()
         for i in range(0, n, self.window):
             w = min(self.window, n - i)
-            # 确保为中文字词
-            c = 0
-            while c <= 2:
+            # 确保为中文字词且pos=True时不修改人名
+            k = 0
+            while k < self.select_k:
                 j = i + self.random.choice(range(w))
                 word = segs[j]
-                c += 1
-                if isChinese(word):
+                if isChinese(word) and tags[j] != 'nr':
                     break
-            if c > 2:
-                continue
-
-            # 当pos=True时不修改人名
-            if tags[j] == 'nr':
+                k += 1
+            if k == self.select_k:
                 continue
 
             # 找到该词的拼音
